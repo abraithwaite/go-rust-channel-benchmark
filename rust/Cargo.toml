@@ -2,9 +2,12 @@
 name = "green-threads-channels"
 version = "0.1.0"
 authors = ["Jeremy Carter <Jeremy@JeremyCarter.ca>"]
+edition = "2018"
 
 [dependencies]
-crossbeam-channel = "*"
+# crossbeam-channel = "*"
+tokio = { version = "0.3", features = ["full"] }
+
 
 [profile.bench]
 opt-level = 3

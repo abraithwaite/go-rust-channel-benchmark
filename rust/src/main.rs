@@ -1,46 +1,42 @@
 #![feature(test)]
-extern crate crossbeam_channel;
 extern crate test;
 
-use crossbeam_channel::unbounded;
-use std::thread;
+use tokio::sync::mpsc;
 
-fn main() {
-    channel(10);
+#[tokio::main]
+async fn main() {
+    channel(10).await;
 }
 
-pub fn channel(num_threads: u64) {
-    let (tx, rx) = unbounded();
-
-    // thread::start(move || {
-    for i in 0u64..num_threads {
-        let tx = tx.clone();
-
-        thread::spawn(move || {
-            tx.send(i).unwrap();
-        });
-    }
-
-    for _ in 0u64..num_threads {
-        let _ = rx.recv().unwrap();
-    }
-    // })
-    // .unwrap();
-}
-
-pub fn channel_threads(num_threads: u64) {
-    let (tx, rx) = std::sync::mpsc::channel::<u64>();
+pub async fn channel(num_threads: u64) {
+    let (tx, mut rx) = mpsc::channel(10000);
 
     for i in 0u64..num_threads {
         let tx = tx.clone();
 
-        thread::spawn(move || {
-            tx.send(i).unwrap();
+        tokio::spawn(async move {
+            tx.send(i).await.unwrap();
         });
     }
 
     for _ in 0u64..num_threads {
-        let _ = rx.recv().unwrap();
+        let x = rx.recv().await.unwrap();
+    }
+}
+
+pub async fn channel_threads(num_threads: u64) {
+    let (tx, mut rx) = mpsc::channel(10000);
+
+    for i in 0u64..num_threads {
+        let tx = tx.clone();
+
+        tokio::spawn(async move {
+            tx.send(i).await.unwrap();
+        });
+    }
+
+    for _ in 0u64..num_threads {
+        let _ = rx.recv().await.unwrap();
     }
 }
 
@@ -48,24 +44,30 @@ pub fn channel_threads(num_threads: u64) {
 mod tests {
     use super::*;
     use test::Bencher;
+    use tokio::runtime::Runtime;
+
 
     #[bench]
     fn bench_rust_channel_10_u64(b: &mut Bencher) {
-        b.iter(|| channel(10));
+        let rt = Runtime::new().unwrap();
+        b.iter(|| rt.block_on(channel(10)));
     }
 
     #[bench]
     fn bench_rust_channel_10000_u64(b: &mut Bencher) {
-        b.iter(|| channel(10000));
+        let rt = Runtime::new().unwrap();
+        b.iter(|| rt.block_on(channel(10000)));
     }
 
     #[bench]
     fn bench_rust_channel_threads_10_u64(b: &mut Bencher) {
-        b.iter(|| channel_threads(10));
+        let rt = Runtime::new().unwrap();
+        b.iter(|| rt.block_on(channel_threads(10)));
     }
 
     #[bench]
     fn bench_rust_channel_threads_10000_u64(b: &mut Bencher) {
-        b.iter(|| channel_threads(10000));
+        let rt = Runtime::new().unwrap();
+        b.iter(|| rt.block_on(channel_threads(10000)));
     }
 }
